@@ -1,0 +1,309 @@
+---
+title: "ARIMA-Bitcoin"
+author: "Svend Pasak"
+date: "12/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(tidyverse) 
+library(lubridate) # date manipulation
+library(forecast) # time series library
+library(TTR) # for Simple moving average function
+library(MLmetrics) # calculate error
+library(tseries) # adf.test
+library(fpp) # usconsumtion
+library(TSstudio) # mempercantik visualisasi timeseries
+library(padr)
+library(zoo)
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+#Read Data 
+```{r}
+BTC <-  read.csv("D:\\data set BTC-USD.csv")
+head(BTC)
+```
+
+```{r}
+BTC <- read.csv("D:\\data set BTC-USD.csv")
+tail(BTC)
+```
+
+
+#Lihat Struktur Data
+```{r}
+str(BTC)
+```
+#Cek Missing Value
+```{r}
+anyNA(BTC)
+```
+
+```{r}
+
+```
+
+#Menghilangkan Kolom yang tidak diperlukan dan mengubah tipe Data kolom "Close"
+```{r}
+BTC <- BTC %>%
+  select(-c(Open,
+            High,
+            Low,
+            Adj.Close,
+            Volume)) %>% 
+  mutate(Date=ymd(Date))
+head(BTC)
+```
+
+#Menghilangkan missing Value (terdapat 4 baris missing values)
+```{r}
+BTC <- na.omit(BTC)
+```
+
+#cek apakah masih ada NA
+```{r}
+anyNA(BTC)
+```
+
+#Exploratory data
+```{r}
+BTC %>% 
+  ggplot(aes(Date, Close)) +
+  geom_point() +
+  geom_line() +
+  labs(y = "BTC Closing Price") +
+  theme_minimal()
+
+plotly::ggplotly()
+```
+#Mengubah Data menjadi Data Time Series (ts)
+#Untuk membuat sebuah object time series pada R kita bisa menggunakan function `ts()` dengan parameter yang diperlukan yaitu :"ts(data, start, frequency)"
+
+* `data`  = data yang akan diprediksi
+* `start` = waktu awal mula data yang akan diprediksi
+* `frequency` = pola berulang dari data (pola harian)
+
+```{r}
+BTC_ts <- ts(data.frame(BTC$Close), 
+  start = c(2017,03), end = c(2021,06),
+  frequency = 30*12)
+```
+
+```{r}
+BTC_ts %>% 
+  autoplot() +
+  geom_point() +
+  labs(y = "BTC Closing Price ") +
+  theme_minimal()
+plotly::ggplotly()
+```
+
+
+
+```{r}
+library(ggplot2)
+```
+#Decompose
+
+```{r}
+BTC_dc <- BTC_ts %>% 
+  decompose(type = "multiplicative") %>% 
+  autoplot()
+BTC_dc
+```
+
+
+```{r}
+
+```
+
+#adf Test
+```{r}
+adf.test(BTC_ts)
+```
+
+#Melakukan 1 x Differencing dengan data BTC_ts
+```{r}
+BTC_diff <- diff(BTC_ts)
+```
+
+#Mengecek 
+```{r}
+adf.test(BTC_diff)
+```
+#Kesimpulan:
+Data sudah stationer ketika dilakukan differencing 1x
+
+* Bandingkan plot tanpa differencing dan dengan differencing 1x
+```{r}
+BTC_ts %>% 
+  autoplot()
+BTC_diff %>% 
+  autoplot()+
+  labs(y = "BTC Closing Price ") +
+  theme_minimal()
+plotly::ggplotly()
+```
+#ARIMA(p,d,q) = AR(p) I(d) MA(q)
+
+diff adalah bagian order untuk d-nya
+
+ARIMA(p,1,q)
+
+#Fitting model (using Auto Arima)
+
+```{r}
+BTC_auto <- auto.arima(BTC_ts, seasonal = FALSE, allowdrift = FALSE)
+BTC_auto
+summary(BTC_auto)
+```
+#Menggunakan Model ARIMA secara Manual
+Langkah 1: Tentukan `d`
+
+Langkah 2: Tentukan `p dan q`
+
+- AR(p) -> perhatikan PACF(Partial Auto Correlation Function) cuts off di lag berapa
+- MA(q) -> perhatikan ACF(Auto Correlation Function) cuts off di lag berapa
+- Dies down/decay: mengalami penurunan atau kenaikan secara lambat
+- cuts off lag: mengalami penurunan atau kenaikan secara cepat
+
+
+# Menampilkan ACF dan PACF hasil differencing
+```{r}
+tsdisplay(BTC_diff)
+```
+#Melihat hasil diatas, maka cuts off lag tidak ada terjadi. sehingga boleh dikatakan model Arima pada objek Bitcoin (BTC) adalah (0,1,0) merupakan yang terbaik dengan nilai MAPE 3,429
+
+
+#Dengan kondisi hasil auto arima diatas, maka perlu dilakukan perhitungan Arima manual
+#Menggunakan Model ARIMA secara Manual
+Langkah 1: Tentukan `d`
+
+Langkah 2: Tentukan `p dan q`
+
+- AR(p) -> perhatikan PACF(Partial Auto Correlation Function) cuts off di lag berapa
+- MA(q) -> perhatikan ACF(Auto Correlation Function) cuts off di lag berapa
+- Dies down/decay: mengalami penurunan atau kenaikan secara lambat
+- cuts off lag: mengalami penurunan atau kenaikan secara cepat
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+# Create Model
+```{r}
+BTC_arima1 <- Arima(BTC_ts, order = c(0,1,1))
+BTC_arima2 <- Arima(BTC_ts, order = c(1,1,1))
+BTC_arima3 <- Arima(BTC_ts, order = c(2,1,1))
+BTC_arima4 <- Arima(BTC_ts, order = c(4,1,1))
+BTC_arima5 <- Arima(BTC_ts, order = c(3,1,3)) 
+BTC_arima6 <- Arima(BTC_ts, order = c(3,1,4))
+BTC_arima7 <- Arima(BTC_ts, order = c(3,1,5))
+BTC_arima8 <- Arima(BTC_ts, order = c(3,1,6))
+BTC_arima9 <- Arima(BTC_ts, order = c(4,1,6)) 
+BTC_arima10 <- Arima(BTC_ts, order = c(4,1,7))
+BTC_arima11 <- Arima(BTC_ts, order = c(9,1,8))
+BTC_arima12 <- Arima(BTC_ts, order = c(10,1,9))
+```
+
+
+# Cek AIC masing-masing Model
+# Nilai AIC terendah yang diambil karena AIC menandakan banyaknya informasi yang hilang.
+
+```{r}
+BTC_arima12$aic
+```
+
+
+```{r}
+accuracy(BTC_arima12)
+```
+
+
+# ada 2 nilai AIC yang lebih rencah dari auto arima yaitu BTC_arima11 (9,1,8)
+# dan BTC_arima12 (10,1,9)
+
+```{r}
+BTC_ts %>% autoplot() + 
+  autolayer(BTC_arima11$fitted, series = "fitted 1") +
+  autolayer(BTC_arima12$fitted, series = "fitted 2")
+plotly::ggplotly()
+```
+
+# Forecasting sebanyak 30 hari ke depan
+```{r}
+forecast_30 <-  forecast(BTC_arima12, h=30)
+forecast_30
+```
+
+
+
+```{r}
+autoplot(forecast_30)+
+  labs(y = "BTC Closing Price Prediction ") +
+  theme_minimal()
+plotly::ggplotly()
+```
+
+
+```{r}
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+```{r}
+ 
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
